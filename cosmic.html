@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Collector</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Tone.js for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+      body {
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(to bottom right, #1a202c, #2d3748); /* Dark gradient background */
+      color: #e2e8f0; /* Light text color */
+      overflow: hidden; /* Prevent scrollbars */
+      padding: 1rem;
+      box-sizing: border-box;
+      }
+
+      .game-container {
+      background-color: #2d3748; /* Slightly lighter dark background */
+      border-radius: 1.5rem; /* More rounded corners */
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      max-width: 90vw; /* Responsive width */
+      width: 600px; /* Max width for larger screens */
+      }
+
+      canvas {
+      background-color: #1a202c; /* Darker canvas background */
+      border-radius: 1rem;
+      border: 2px solid #4a5568; /* Subtle border */
+      display: block;
+      touch-action: none; /* Prevent default touch actions like scrolling */
+      width: 100%; /* Make canvas responsive */
+      max-width: 500px; /* Max width for canvas */
+      height: 400px; /* Fixed height for canvas aspect ratio */
+      }
+
+      .game-info {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0 0.5rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #a0aec0; /* Lighter grey for info */
+      }
+
+      .controls {
+      display: flex;
+      gap: 1rem;
+      width: 100%;
+      justify-content: center;
+      }
+
+      .control-button {
+      background-color: #4299e1; /* Blue button */
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem; /* Rounded button corners */
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.1s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      border: none;
+      }
+
+      .control-button:hover {
+      background-color: #3182ce; /* Darker blue on hover */
+      transform: translateY(-2px); /* Slight lift effect */
+      }
+
+      .control-button:active {
+      transform: translateY(0); /* Press effect */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      /* Message Box Styling */
+      .message-box-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      }
+
+      .message-box-overlay.visible {
+      opacity: 1;
+      visibility: visible;
+      }
+
+      .message-box-content {
+      background-color: #2d3748;
+      padding: 2rem;
+      border-radius: 1.5rem;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+      }
+
+      .message-box-overlay.visible .message-box-content {
+      transform: scale(1);
+      }
+
+      .message-box-content h2 {
+      font-size: 2rem;
+      color: #4299e1;
+      margin-bottom: 1rem;
+      }
+
+      .message-box-content p {
+      font-size: 1.2rem;
+      color: #cbd5e0;
+      margin-bottom: 1.5rem;
+      }
+
+      /* Mobile specific styles for touch controls */
+      .touch-controls {
+      display: none; /* Hidden by default */
+      width: 100%;
+      justify-content: space-around;
+      margin-top: 1rem;
+      }
+
+      .touch-button {
+      background-color: #4a5568; /* Darker grey for touch buttons */
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 50%; /* Circular buttons */
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      user-select: none; /* Prevent text selection on tap */
+      -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      }
+
+      .touch-button:active {
+      background-color: #2d3748; /* Even darker on active */
+      }
+
+      @media (max-width: 768px) {
+      .game-container {
+      padding: 1rem;
+      gap: 0.75rem;
+      }
+      canvas {
+      height: 300px; /* Adjust height for smaller screens */
+      }
+      .game-info {
+      font-size: 1rem;
+      }
+      .control-button {
+      padding: 0.6rem 1.2rem;
+      font-size: 0.9rem;
+      }
+      .message-box-content h2 {
+      font-size: 1.5rem;
+      }
+      .message-box-content p {
+      font-size: 1rem;
+      }
+      .touch-controls {
+      display: flex; /* Show touch controls on small screens */
+      }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="game-container">
+      <h1 class="text-3xl font-bold text-blue-400 mb-4">Cosmic Collector</h1>
+      <div class="game-info">
+	<div id="scoreDisplay">Score: 0</div>
+	<div id="livesDisplay">Lives: 10</div>
+      </div>
+      <canvas id="gameCanvas"></canvas>
+      <div class="controls">
+	<button id="startButton" class="control-button">Start Game</button>
+	<button id="restartButton" class="control-button" style="display: none;">Restart Game</button>
+      </div>
+      <div class="touch-controls">
+	<button id="leftButton" class="touch-button">◀</button>
+	<button id="rightButton" class="touch-button">▶</button>
+      </div>
+    </div>
+
+    <!-- Custom Message Box -->
+    <div id="messageBoxOverlay" class="message-box-overlay">
+      <div class="message-box-content">
+	<h2 id="messageBoxTitle"></h2>
+	<p id="messageBoxMessage"></p>
+	<button id="messageBoxButton" class="control-button">OK</button>
+      </div>
+    </div>
+
+    <script>
+      // Get canvas and context
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+
+      // Get UI elements
+      const scoreDisplay = document.getElementById('scoreDisplay');
+      const livesDisplay = document.getElementById('livesDisplay');
+      const startButton = document.getElementById('startButton');
+      const restartButton = document.getElementById('restartButton');
+      const leftButton = document.getElementById('leftButton');
+      const rightButton = document.getElementById('rightButton');
+
+      // Message Box elements
+      const messageBoxOverlay = document.getElementById('messageBoxOverlay');
+      const messageBoxTitle = document.getElementById('messageBoxTitle');
+      const messageBoxMessage = document.getElementById('messageBoxMessage');
+      const messageBoxButton = document.getElementById('messageBoxButton');
+
+      // Game state variables
+      let score = 0;
+      let lives = 10;
+      let gameOver = true;
+      let lastTime = 0;
+      let deltaTime = 0;
+      let animationFrameId;
+
+      // Player properties
+      const player = {
+      width: 80,
+      height: 20,
+      x: 0,
+      y: 0,
+      speed: 250, // pixels per second
+      color: '#63b3ed' // Light blue for player
+      };
+
+      // Array to hold falling items (cosmic dust)
+      const fallingItems = [];
+      const ITEM_RADIUS = 8;
+      const ITEM_SPEED_MIN = 100; // pixels per second
+      const ITEM_SPEED_MAX = 200;
+      const ITEM_SPAWN_INTERVAL = 1000; // milliseconds
+      let lastItemSpawnTime = 0;
+
+      // Keyboard input
+      const keysPressed = {};
+
+      // Sound effects using Tone.js
+      const collectSynth = new Tone.Synth().toDestination();
+      const gameOverSynth = new Tone.MembraneSynth().toDestination();
+
+      // Function to play collect sound
+      function playCollectSound() {
+      collectSynth.triggerAttackRelease("C4", "8n");
+      }
+
+      // Function to play game over sound
+      function playGameOverSound() {
+      gameOverSynth.triggerAttackRelease("C2", "4n");
+      }
+
+      // Function to show custom message box
+      function showMessageBox(title, message, buttonText, callback) {
+      messageBoxTitle.textContent = title;
+      messageBoxMessage.textContent = message;
+      messageBoxButton.textContent = buttonText;
+      messageBoxOverlay.classList.add('visible');
+
+      messageBoxButton.onclick = () => {
+      messageBoxOverlay.classList.remove('visible');
+      if (callback) {
+      callback();
+      }
+      };
+      }
+
+      // Initialize game canvas dimensions and player position
+      function initializeGameDimensions() {
+      canvas.width = canvas.offsetWidth; // Set canvas width to its CSS width
+      canvas.height = canvas.offsetHeight; // Set canvas height to its CSS height
+      player.x = (canvas.width - player.width) / 2;
+      player.y = canvas.height - player.height - 10; // 10 pixels from bottom
+      }
+
+      // Draw player
+      function drawPlayer() {
+      ctx.fillStyle = player.color;
+      ctx.beginPath();
+      // Draw a rounded rectangle for the player
+      const radius = 5; // Corner radius
+      ctx.moveTo(player.x + radius, player.y);
+      ctx.lineTo(player.x + player.width - radius, player.y);
+      ctx.quadraticCurveTo(player.x + player.width, player.y, player.x + player.width, player.y + radius);
+      ctx.lineTo(player.x + player.width, player.y + player.height - radius);
+      ctx.quadraticCurveTo(player.x + player.width, player.y + player.height, player.x + player.width - radius, player.y + player.height);
+      ctx.lineTo(player.x + radius, player.y + player.height);
+      ctx.quadraticCurveTo(player.x, player.y + player.height, player.x, player.y + player.height - radius);
+      ctx.lineTo(player.x, player.y + radius);
+      ctx.quadraticCurveTo(player.x, player.y, player.x + radius, player.y);
+      ctx.closePath();
+      ctx.fill();
+      }
+
+      // Create a new falling item
+      function createFallingItem() {
+      const x = Math.random() * (canvas.width - ITEM_RADIUS * 2) + ITEM_RADIUS;
+      const speed = Math.random() * (ITEM_SPEED_MAX - ITEM_SPEED_MIN) + ITEM_SPEED_MIN;
+      fallingItems.push({
+      x: x,
+      y: -ITEM_RADIUS, // Start above the canvas
+      radius: ITEM_RADIUS,
+      speed: speed,
+      color: `hsl(${Math.random() * 360}, 70%, 70%)` // Random vibrant color
+      });
+      }
+
+      // Draw a falling item
+      function drawFallingItem(item) {
+      ctx.beginPath();
+      ctx.arc(item.x, item.y, item.radius, 0, Math.PI * 2);
+      ctx.fillStyle = item.color;
+      ctx.fill();
+      ctx.closePath();
+      }
+
+      // Update game state
+      function update(currentTime) {
+      if (gameOver) return;
+
+      deltaTime = (currentTime - lastTime) / 1000; // Convert to seconds
+      lastTime = currentTime;
+
+      // Move player
+      if (keysPressed['ArrowLeft'] || keysPressed['a']) {
+      player.x -= player.speed * deltaTime;
+      }
+      if (keysPressed['ArrowRight'] || keysPressed['d']) {
+      player.x += player.speed * deltaTime;
+      }
+
+      // Clamp player position within canvas bounds
+      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      // Spawn new items
+      if (currentTime - lastItemSpawnTime > ITEM_SPAWN_INTERVAL) {
+      createFallingItem();
+      lastItemSpawnTime = currentTime;
+      }
+
+      // Update and draw falling items, check collisions
+      for (let i = fallingItems.length - 1; i >= 0; i--) {
+      const item = fallingItems[i];
+      item.y += item.speed * deltaTime;
+
+      // Collision detection with player
+      if (item.y + item.radius > player.y &&
+      item.y - item.radius < player.y + player.height &&
+			     item.x + item.radius > player.x &&
+	item.x - item.radius < player.x + player.width) {
+			       // Collision!
+			       score++;
+			       playCollectSound();
+			       fallingItems.splice(i, 1); // Remove collected item
+			       } else if (item.y - item.radius > canvas.height) {
+	  // Item missed (went off screen)
+	  lives--;
+	  fallingItems.splice(i, 1); // Remove missed item
+	  }
+	  }
+
+	  // Update UI
+	  scoreDisplay.textContent = `Score: ${score}`;
+	  livesDisplay.textContent = `Lives: ${lives}`;
+
+	  // Check for game over
+	  if (lives <= 0) {
+		       gameOver = true;
+		       playGameOverSound();
+		       cancelAnimationFrame(animationFrameId); // Stop the game loop
+		       showMessageBox(
+		       "Game Over!",
+		       `You missed too many cosmic dust particles. Your final score is: ${score}`,
+		       "Play Again",
+		       resetGame
+		       );
+		       }
+		       }
+
+		       // Main game loop
+		       function animate(currentTime) {
+		       ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+		       update(currentTime);
+		       drawPlayer();
+		       fallingItems.forEach(drawFallingItem);
+		       if (!gameOver) {
+		       animationFrameId = requestAnimationFrame(animate);
+		       }
+		       }
+
+		       // Start the game
+		       function startGame() {
+		       score = 0;
+		       lives = 10;
+		       fallingItems.length = 0; // Clear existing items
+		       gameOver = false;
+		       lastTime = performance.now(); // Initialize lastTime for deltaTime calculation
+		       lastItemSpawnTime = performance.now(); // Initialize spawn time
+		       scoreDisplay.textContent = `Score: ${score}`;
+		       livesDisplay.textContent = `Lives: ${lives}`;
+		       startButton.style.display = 'none';
+		       restartButton.style.display = 'inline-block';
+		       animationFrameId = requestAnimationFrame(animate); // Start the game loop
+		       }
+
+		       // Reset game state
+		       function resetGame() {
+		       cancelAnimationFrame(animationFrameId); // Ensure any running animation stops
+		       score = 0;
+		       lives = 10;
+		       fallingItems.length = 0;
+		       gameOver = true; // Set to true initially to prevent animation loop from starting
+		       player.x = (canvas.width - player.width) / 2; // Reset player position
+		       scoreDisplay.textContent = `Score: ${score}`;
+		       livesDisplay.textContent = `Lives: ${lives}`;
+		       startButton.style.display = 'inline-block';
+		       restartButton.style.display = 'none';
+		       }
+
+		       // Event Listeners for Keyboard
+		       window.addEventListener('keydown', (e) => {
+	    keysPressed[e.key] = true;
+	    });
+
+	    window.addEventListener('keyup', (e) => {
+	    keysPressed[e.key] = false;
+	    });
+
+	    // Event Listeners for Touch Controls
+	    let touchStartX = 0;
+	    let touchMoveX = 0;
+	    let touchActive = false;
+
+	    leftButton.addEventListener('touchstart', (e) => {
+	    e.preventDefault(); // Prevent scrolling
+	    keysPressed['ArrowLeft'] = true;
+	    }, { passive: false });
+	    leftButton.addEventListener('touchend', () => {
+	    keysPressed['ArrowLeft'] = false;
+	    });
+	    leftButton.addEventListener('touchcancel', () => {
+	    keysPressed['ArrowLeft'] = false;
+	    });
+
+	    rightButton.addEventListener('touchstart', (e) => {
+	    e.preventDefault(); // Prevent scrolling
+	    keysPressed['ArrowRight'] = true;
+	    }, { passive: false });
+	    rightButton.addEventListener('touchend', () => {
+	    keysPressed['ArrowRight'] = false;
+	    });
+	    rightButton.addEventListener('touchcancel', () => {
+	    keysPressed['ArrowRight'] = false;
+	    });
+
+	    // Optional: Canvas wide swipe for movement (alternative to buttons)
+	    canvas.addEventListener('touchstart', (e) => {
+	    e.preventDefault();
+	    touchStartX = e.touches[0].clientX;
+	    touchActive = true;
+	    }, { passive: false });
+
+	    canvas.addEventListener('touchmove', (e) => {
+	    e.preventDefault();
+	    if (touchActive) {
+	    touchMoveX = e.touches[0].clientX;
+	    const deltaX = touchMoveX - touchStartX;
+	    const sensitivity = 0.5; // Adjust sensitivity
+	    player.x += deltaX * sensitivity;
+	    touchStartX = touchMoveX; // Update start for continuous movement
+	    }
+	    }, { passive: false });
+
+	    canvas.addEventListener('touchend', () => {
+	    touchActive = false;
+	    keysPressed['ArrowLeft'] = false;
+	    keysPressed['ArrowRight'] = false;
+	    });
+	    canvas.addEventListener('touchcancel', () => {
+	    touchActive = false;
+	    keysPressed['ArrowLeft'] = false;
+	    keysPressed['ArrowRight'] = false;
+	    });
+
+
+	    // Button event listeners
+	    startButton.addEventListener('click', startGame);
+	    restartButton.addEventListener('click', startGame); // Restart button also starts a new game
+
+	    // Initial setup on window load
+	    window.onload = function() {
+	    initializeGameDimensions();
+	    resetGame(); // Set initial state
+	    // Re-initialize dimensions on window resize
+	    window.addEventListener('resize', initializeGameDimensions);
+	    // Show initial message box
+	    showMessageBox(
+	    "Welcome to Cosmic Collector!",
+	    "Catch the falling cosmic dust with your spaceship. Don't miss too many, or it's game over! Use Arrow keys or A/D to move, or use the on-screen buttons.",
+	    "Start Game",
+	    startGame
+	    );
+	    };
+    </script>
+  </body>
+</html>
