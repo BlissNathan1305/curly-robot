@@ -1,0 +1,41 @@
+
+from PIL import Image, ImageDraw
+
+# Set dimensions for 4K mobile wallpaper (1440x2560)
+width, height = 1440, 2560
+
+# Create a new image with RGB mode
+image = Image.new("RGB", (width, height), color="black")
+draw = ImageDraw.Draw(image)
+
+# Create a gradient sky (sunset effect)
+for y in range(height):
+    r = int(255 * (y / height) ** 2)  # Red increases towards the bottom
+    g = int(100 * (1 - y / height))   # Green fades out
+    b = int(50 * (1 - y / height))    # Blue fades out
+    color = (r, g, b)
+    draw.line([(0, y), (width, y)], fill=color)
+
+# Draw a simple beach (brown strip at the bottom)
+beach_height = height // 4
+draw.rectangle([(0, height - beach_height), (width, height)],
+               fill=(139, 69, 19))  # Brown color
+
+# Draw waves (light blue with white foam)
+wave_y = height - beach_height
+for _ in range(5):
+    wave_y += 20
+    draw.line([(0, wave_y), (width, wave_y)], fill=(173, 216, 230))  # Light blue
+    draw.line([(0, wave_y + 5), (width, wave_y + 5)], fill=(255, 255, 255))  # White foam
+
+# Draw a sun (orange circle near the horizon)
+sun_radius = 100
+sun_y = height - beach_height - sun_radius - 50
+draw.ellipse([(width // 2 - sun_radius, sun_y),
+              (width // 2 + sun_radius, sun_y + 2 * sun_radius)],
+             fill=(255, 165, 0))  # Orange
+
+# Save the image as a JPEG
+image.save("mobile_wallpaper_4k.jpg", "JPEG", quality=95)
+
+print("Wallpaper generated as 'mobile_wallpaper_4k.jpg'")
