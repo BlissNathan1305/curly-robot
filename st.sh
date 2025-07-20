@@ -1,3 +1,14 @@
+#!/bin/bash
+echo "Press Enter to start the stopwatch."
+read
+start_time=$(date +%s)
+
+echo "Stopwatch started... Press Enter to stop."
+read
+end_time=$(date +%s)
+
+elapsed=$(( end_time - start_time ))
+echo "Elapsed time: $elapsed seconds"
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageEnhance

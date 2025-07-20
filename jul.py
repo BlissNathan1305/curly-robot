@@ -1,0 +1,68 @@
+
+from PIL import Image, ImageDraw, ImageFont
+import calendar
+
+# === SETTINGS ===
+year = 2025
+month = 7  # July
+width, height = 3840, 2160  # 4K resolution
+bg_color = (245, 245, 245)  # Light gray background
+text_color = (33, 33, 33)   # Dark text
+header_color = (0, 102, 204)
+
+# === CREATE BACKGROUND ===
+image = Image.new("RGB", (width, height), bg_color)
+draw = ImageDraw.Draw(image)
+
+# === LOAD FONTS ===
+try:
+    title_font = ImageFont.truetype("arial.ttf", 160)
+    header_font = ImageFont.truetype("arial.ttf", 100)
+    day_font = ImageFont.truetype("arial.ttf", 80)
+except:
+    title_font = ImageFont.load_default()
+    header_font = ImageFont.load_default()
+    day_font = ImageFont.load_default()
+
+# === DRAW TITLE ===
+month_name = calendar.month_name[month]
+title_text = f"{month_name} {year}"
+tw, th = draw.textsize(title_text, font=title_font)
+draw.text(((width - tw) // 2, 100), title_text, fill=header_color, font=title_font)
+
+# === GET CALENDAR DATA ===
+cal = calendar.Calendar(calendar.SUNDAY)
+month_days = list(cal.itermonthdays(year, month))
+
+# === DRAW DAYS ===
+start_x, start_y = 200, 400
+box_width = 480
+box_height = 220
+
+# Draw day headers
+days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+for i, day in enumerate(days):
+    x = start_x + i * box_width
+    draw.text((x + 50, start_y), day, fill=header_color, font=header_font)
+
+# Draw calendar numbers
+row = 1
+col = 0
+for day in month_days:
+    if day == 0:
+        col += 1
+        if col == 7:
+            col = 0
+            row += 1
+        continue
+    x = start_x + col * box_width
+    y = start_y + row * box_height
+    draw.text((x + 50, y), str(day), fill=text_color, font=day_font)
+    col += 1
+    if col == 7:
+        col = 0
+        row += 1
+
+# === SAVE IMAGE ===
+image.save("july_calendar.jpg", "JPEG", quality=95)
+print("Saved as july_calendar.jpg")
