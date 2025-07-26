@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Wallpaper Generator</title>
+    <style>
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background: #222; 
+            color: white; 
+            font-family: Arial, sans-serif; 
+            overflow-x: hidden; 
+        }
+        canvas { 
+            display: block; 
+            width: 100%; 
+            max-width: 720px; /* Scale down for mobile display */
+            height: auto; 
+        }
+        button { 
+            margin: 20px; 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background: #6200ea; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+        }
+        button:hover { 
+            background: #3700b3; 
+        }
+    </style>
+</head>
+<body>
+    <canvas id="wallpaperCanvas"></canvas>
+    <button onclick="downloadWallpaper()">Download Wallpaper</button>
+    <script>
+        // Set up canvas
+        const canvas = document.getElementById('wallpaperCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Mobile-optimized resolution (1440p)
+        const width = 2560;
+        const height = 1440;
+        canvas.width = width;
+        canvas.height = height;
+
+        // Scale canvas for display on mobile
+        canvas.style.maxWidth = `${Math.min(window.innerWidth, 720)}px`;
+        canvas.style.height = 'auto';
+
+        // Generate simplified noise for texture (optimized for mobile)
+        function generateNoise(ctx, width, height, opacity = 0.05) {
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const value = Math.random() * 255;
+                data[i] = value;     // R
+                data[i + 1] = value; // G
+                data[i + 2] = value; // B
+                data[i + 3] = opacity * 255; // A
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        // Generate gradient with multiple colors
+        function drawGradient() {
+            // Create radial gradient
+            const gradient = ctx.createRadialGradient(
+                width / 2, height / 2, 0, // Inner circle
+                width / 2, height / 2, Math.max(width, height) / 2 // Outer circle
+            );
+            gradient.addColorStop(0, '#1e88e5'); // Blue
+            gradient.addColorStop(0.3, '#8e24aa'); // Purple
+            gradient.addColorStop(0.6, '#ff4081'); // Pink
+            gradient.addColorStop(1, '#ffeb3b'); // Yellow
+
+            // Fill canvas with gradient
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Add subtle noise for texture
+            generateNoise(ctx, width, height, 0.05);
+
+            // Simplified wave pattern for performance
+            ctx.globalCompositeOperation = 'overlay';
+            for (let y = 0; y < height; y += 10) { // Increased step size
+                for (let x = 0; x < width; x += 10) {
+                    const offset = Math.sin(x * 0.003 + y * 0.004) * 15;
+                    ctx.fillStyle = `rgba(255, 255, 255, 0.03)`;
+                    ctx.fillRect(x + offset, y + offset, 5, 5);
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Draw the wallpaper
+        drawGradient();
+
+        // Download function
+        function downloadWallpaper() {
+            const link = document.createElement('a');
+            link.download = 'mobile-wallpaper.jpg';
+            link.href = canvas.toDataURL('image/jpeg', 0.85); // JPEG with 85% quality
+            link.click();
+        }
+    </script>
+</body>
+</html>
+
