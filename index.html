@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Blitz: Missing Letters</title>
+    <!-- Load Tailwind CSS for styling and Tone.js for sound -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.7.58/build/Tone.js"></script>
+    
+    <!-- FACEBOOK SDK REMOVED: This is now a standalone web game. -->
+    
+    <style>
+        /* Custom Styles for aesthetic appeal and responsiveness */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1f2937 0%, #0d1217 100%);
+            color: #ecf0f1;
+            min-height: 100vh;
+        }
+        /* Mobile-first centered game card */
+        .game-card {
+            background: #273746;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        /* Style for the input letter tiles */
+        .letter-tile {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            user-select: none;
+            box-shadow: 0 4px 0 #1e8449; /* Green Shadow */
+        }
+        .letter-tile:hover:not(.locked) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #1e8449;
+        }
+        .letter-tile:active:not(.locked) {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #1e8449;
+        }
+        /* Highlight the current active input slot */
+        .input-slot.active {
+            box-shadow: 0 0 10px 3px #3498db;
+            border-color: #3498db;
+        }
+        /* Animation for correct guess */
+        @keyframes correct-flash {
+            0% { background-color: #2ecc71; transform: scale(1); }
+            50% { background-color: #27ae60; transform: scale(1.05); }
+            100% { background-color: #2ecc71; transform: scale(1); }
+        }
+        .correct-answer {
+            animation: correct-flash 0.5s ease-in-out;
+        }
+        /* Animation for incorrect guess */
+        @keyframes incorrect-shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+        .incorrect-shake {
+            animation: incorrect-shake 0.3s;
+        }
+        /* Hint button style */
+        .hint-button {
+            background-color: #f39c12;
+            box-shadow: 0 4px 0 #e67e22;
+        }
+        .hint-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #e67e22;
+        }
+    </style>
+</head>
+<body class="p-4 flex items-center justify-center">
+
+    <div class="game-card max-w-lg w-full p-6 sm:p-8 rounded-xl border-t-4 border-b-4 border-yellow-500 shadow-2xl">
+        
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-yellow-400 mb-4 tracking-tight">
+            Word Blitz
+        </h1>
+        <p class="text-gray-400 mb-6 text-sm">Fill in the missing letters to complete the word.</p>
+
+        <!-- Stats Section -->
+        <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg mb-6 shadow-md">
+            <div class="text-center">
+                <p class="text-xs text-gray-400">Score</p>
+                <p id="score-display" class="text-2xl font-bold text-green-400">0</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-400">Level</p>
+                <p id="level-display" class="text-2xl font-bold text-blue-400">0</p>
+            </div>
+            <div class="text-center">
+                <p class="text-xs text-gray-400">High Score</p>
+                <p id="high-score-display" class="text-2xl font-bold text-red-400">0</p>
+            </div>
+        </div>
+
+        <!-- Word Puzzle Area -->
+        <div id="word-puzzle-container" class="flex flex-wrap justify-center gap-2 mb-4">
+            <!-- Puzzle slots go here -->
+        </div>
+
+        <!-- Hint Button & Action Bar -->
+        <div class="flex justify-center mb-8">
+            <button id="hint-button" class="game-button hint-button text-white font-bold py-2 px-4 rounded-lg transition duration-150 text-sm opacity-50 cursor-not-allowed" disabled>
+                Get Hint (-1 Point)
+            </button>
+        </div>
+
+        <!-- Current Status Message -->
+        <p id="status-message" class="text-center text-sm h-6 mb-8 text-yellow-300 transition-opacity duration-300"></p>
+
+        <!-- Letter Selection Tiles -->
+        <div id="letter-tiles-container" class="flex flex-wrap justify-center gap-2 p-4 bg-gray-800 rounded-lg">
+            <!-- Letter tiles (A-Z) go here -->
+        </div>
+
+        <!-- Overlay for Start/Game Over -->
+        <div id="game-overlay" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-90 z-10 transition-opacity duration-500">
+            <div class="bg-gray-800 p-8 rounded-xl max-w-sm w-full text-center border-t-8 border-b-8 border-purple-500 shadow-3xl">
+                <h2 id="overlay-title" class="text-3xl font-extrabold text-purple-400 mb-4">Word Blitz</h2>
+                
+                <p id="overlay-message" class="text-gray-300 mb-6">Complete 200 words to master the Blitz!</p>
+                
+                <button id="start-button" class="game-button bg-green-500 hover:bg-green-400 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-150 transform hover:scale-105">
+                    Start Challenge
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Game Configuration and Data ---
+        
+        const WORD_LIST = [
+            "APPLE", "HOUSE", "WATER", "GREEN", "RIVER", "BEACH", "CHAIR", "TABLE", "TRAIN", "CLOUD",
+            "MUSIC", "HAPPY", "GHOST", "BLANK", "STORM", "PANDA", "FROST", "OCEAN", "TIGER", "MONEY",
+            "JUMP", "QUICK", "WIZARD", "CASTLE", "PURPLE", "FLOWER", "BRIGHT", "SILVER", "GOLDEN", "EARTH",
+            "PLANET", "VOICE", "HEART", "DREAM", "LIGHT", "SHADOW", "CRICKET", "DOCTOR", "BOTTLE", "WINDOW",
+            "STREET", "PEOPLE", "FAMILY", "SCHOOL", "HEALTH", "TRAVEL", "FUTURE", "MEMORY", "JOURNEY", "STARRY",
+            "MOMENT", "WONDER", "SIMPLE", "DIRECT", "ENERGY", "SECRET", "FANTASY", "SYSTEM", "ENGINE", "BRIDGE",
+            "SUNDAY", "MONDAY", "TUESDAY", "FRIDAY", "SATURN", "MARS", "VENUS", "JUPITER", "NEPTUNE", "PLUTO",
+            "VICTORY", "WARRIOR", "SHIELD", "SWORD", "MAGIC", "HUNTER", "FEATHER", "SCARF", "GUITAR", "PIANO",
+            "SAX", "DRUMS", "NOTES", "SONG", "RHYTHM", "BALANCE", "PREDICT", "EXPERT", "ADVICE", "CHANGE",
+            "POWER", "STRENGTH", "COURAGE", "SPIRIT", "CALM", "PEACE", "TRUTH", "TRUST", "UNITY", "GOAL",
+            "TARGET", "ACHIEVE", "MASTER", "GENIUS", "NOVEL", "POETRY", "ESSAY", "DRAMA", "COMEDY", "MOVIE",
+            "RADIO", "MEDIA", "NEWS", "REPORT", "ARTICLE", "BLOG", "FORUM", "POST", "TWEET", "SHARE",
+            "CONNECT", "ALARM", "SLEEP", "WAKEUP", "MORNING", "EVENING", "NIGHT", "MIDDAY", "BREAK", "LUNCH",
+            "DINNER", "COFFEE", "SUGAR", "CREAM", "HONEY", "CHEESE", "BREAD", "SPOON", "FORK", "PLATE",
+            "GLASS", "CUP", "JUICE", "GRAPE", "LEMON", "ORANGE", "PEAR", "KIWI", "BERRY", "MELON",
+            "WATERMELON", "PINEAPPLE", "CACTUS", "FERN", "MOSS", "TREE", "OAK", "MAPLE", "PALM", "FLORA",
+            "FAUNA", "INSECT", "SPIDER", "BEE", "WASP", "SNAKE", "FROG", "LIZARD", "TURTLE", "FISH",
+            "DOLPHIN", "SHARK", "WHALE", "SEAL", "OTTER", "BEAVER", "COYOTE", "WOLF", "FOX", "DEER",
+            "ELK", "MOOSE", "BISON", "COW", "HORSE", "PIG", "GOAT", "SHEEP", "CHICKEN", "DUCK",
+            "GOOSE", "BIRD", "EAGLE", "HAWK", "OWL", "RAVEN", "CROW", "PARROT", "ROBOT", "DIGITAL",
+            "ANALOG", "CODE", "SCRIPT", "SERVER", "CLIENT", "BROWSER", "CURSOR", "MOUSE", "KEYBOARD", "SCREEN",
+            "PRINTER", "MODEM", "ROUTER", "CABLE", "WIRE", "SOCKET", "PLUG", "VOLT", "AMP", "OHM"
+        ];
+        
+        // --- Game State Variables and DOM Elements ---
+        let shuffledWords = [...WORD_LIST].sort(() => 0.5 - Math.random());
+        let currentWordIndex = 0;
+        let currentWord = "";
+        let puzzleDisplay = []; 
+        let score = 0;
+        let highScore = localStorage.getItem('wordBlitzHighScore') || 0;
+        let activeInputSlotIndex = -1;
+        let gameRunning = false;
+
+        const puzzleContainer = document.getElementById('word-puzzle-container');
+        const letterTilesContainer = document.getElementById('letter-tiles-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const levelDisplay = document.getElementById('level-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const statusMessage = document.getElementById('status-message');
+        const gameOverlay = document.getElementById('game-overlay');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayMessage = document.getElementById('overlay-message');
+        const startButton = document.getElementById('start-button');
+        const hintButton = document.getElementById('hint-button');
+
+
+        // --- Sound Setup (Tone.js - Unchanged) ---
+        const correctSynth = new Tone.Synth({
+            oscillator: { type: "sine" },
+            envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.3 }
+        }).toDestination();
+        const incorrectSynth = new Tone.MembraneSynth({
+            pitchDecay: 0.05,
+            octaves: 2,
+            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 0.1 },
+        }).toDestination();
+        const levelUpSynth = new Tone.PolySynth(Tone.AMSynth).toDestination();
+
+        function playCorrect() { correctSynth.triggerAttackRelease("G5", "8n"); }
+        function playIncorrect() { incorrectSynth.triggerAttackRelease("C2", "8n"); }
+        function playLevelUp() { levelUpSynth.triggerAttackRelease(["C4", "E4", "G4"], "4n"); }
+        function playHintSound() { correctSynth.triggerAttackRelease("A3", "16n"); }
+
+        // --- Core Game Functions (Unchanged) ---
+
+        function loadNewPuzzle() {
+            if (currentWordIndex >= shuffledWords.length) {
+                endGame(true);
+                return;
+            }
+
+            currentWord = shuffledWords[currentWordIndex];
+            currentWordIndex++;
+
+            const length = currentWord.length;
+            const maxMissing = Math.min(3, Math.floor(length / 3) + 1);
+            const numMissing = Math.floor(Math.random() * maxMissing) + 1; 
+
+            let indices = Array.from({ length: length }, (_, i) => i);
+            indices.sort(() => 0.5 - Math.random());
+            
+            const missingIndices = new Set(indices.slice(0, numMissing));
+
+            puzzleDisplay = Array.from(currentWord.toUpperCase()).map((char, index) => ({
+                char: char,
+                isMissing: missingIndices.has(index),
+                userGuess: missingIndices.has(index) ? '' : char,
+                originalIndex: index
+            }));
+
+            renderPuzzle();
+            renderLetterTiles();
+            setActiveInputSlot(puzzleDisplay.findIndex(p => p.isMissing)); 
+            updateStats();
+            updateHintButtonState();
+        }
+
+        function renderPuzzle() {
+            puzzleContainer.innerHTML = '';
+            puzzleDisplay.forEach((slot, index) => {
+                const element = document.createElement('div');
+                element.className = `h-14 flex items-center justify-center font-extrabold text-xl sm:text-2xl rounded-lg transition duration-200 shadow-md transform hover:scale-105`;
+
+                if (slot.isMissing) {
+                    element.id = `input-slot-${index}`;
+                    element.className += ' w-12 bg-yellow-600 border-2 border-yellow-800 input-slot cursor-pointer text-gray-900';
+                    element.textContent = slot.userGuess || '_';
+                    
+                    element.onclick = () => setActiveInputSlot(index);
+                } else {
+                    element.className += ' w-12 bg-gray-600 text-gray-200 locked';
+                    element.textContent = slot.char;
+                }
+
+                puzzleContainer.appendChild(element);
+            });
+        }
+        
+        function setActiveInputSlot(index) {
+            const prevSlot = document.querySelector(`.input-slot.active`);
+            if (prevSlot) {
+                prevSlot.classList.remove('active');
+            }
+
+            const newSlotElement = document.getElementById(`input-slot-${index}`);
+            if (newSlotElement) {
+                newSlotElement.classList.add('active');
+                activeInputSlotIndex = index;
+            } else {
+                activeInputSlotIndex = -1;
+            }
+        }
+
+        function renderLetterTiles() {
+            letterTilesContainer.innerHTML = '';
+            const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+            Array.from(allLetters).forEach(letter => {
+                const tile = document.createElement('div');
+                tile.className = 'letter-tile bg-green-500 text-white rounded-md';
+                tile.textContent = letter;
+                tile.onclick = () => handleLetterGuess(letter);
+                letterTilesContainer.appendChild(tile);
+            });
+        }
+
+        function handleLetterGuess(letter) {
+            if (!gameRunning) return;
+            
+            if (activeInputSlotIndex === -1 || !puzzleDisplay[activeInputSlotIndex].isMissing) {
+                statusMessage.textContent = "Click an empty slot first!";
+                return;
+            }
+
+            const slot = puzzleDisplay[activeInputSlotIndex];
+            const inputSlotElement = document.getElementById(`input-slot-${activeInputSlotIndex}`);
+            
+            if (letter === slot.char) {
+                applyCorrectGuess(slot, inputSlotElement, letter);
+                checkWordCompletion();
+            } else {
+                playIncorrect();
+                puzzleContainer.classList.add('incorrect-shake');
+                setTimeout(() => puzzleContainer.classList.remove('incorrect-shake'), 300);
+                statusMessage.textContent = `Oops! That's not the right letter. Try again.`;
+            }
+
+            moveToNextMissingSlot();
+            setTimeout(() => statusMessage.textContent = '', 2000);
+        }
+
+        function applyCorrectGuess(slot, element, letter) {
+            playCorrect();
+            slot.userGuess = letter;
+            element.textContent = letter;
+            element.classList.remove('bg-yellow-600', 'border-yellow-800');
+            element.classList.add('bg-green-500', 'correct-answer');
+            statusMessage.textContent = "Correct!";
+        }
+
+        function moveToNextMissingSlot() {
+            const currentSlotIndex = activeInputSlotIndex;
+
+            let nextMissingIndex = -1;
+            for (let i = currentSlotIndex + 1; i < puzzleDisplay.length; i++) {
+                if (puzzleDisplay[i].isMissing && puzzleDisplay[i].userGuess === '') {
+                    nextMissingIndex = i;
+                    break;
+                }
+            }
+            
+            if (nextMissingIndex === -1) {
+                for (let i = 0; i < currentSlotIndex; i++) {
+                    if (puzzleDisplay[i].isMissing && puzzleDisplay[i].userGuess === '') {
+                        nextMissingIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            setActiveInputSlot(nextMissingIndex);
+        }
+
+        function getHint() {
+            if (!gameRunning) return;
+            
+            const emptySlots = puzzleDisplay.filter(slot => slot.isMissing && slot.userGuess === '');
+
+            if (emptySlots.length === 0) {
+                statusMessage.textContent = "No more missing letters!";
+                updateHintButtonState();
+                return;
+            }
+
+            score = Math.max(0, score - 1);
+            updateStats();
+            playHintSound();
+
+            const randomIndex = Math.floor(Math.random() * emptySlots.length);
+            const slotToReveal = emptySlots[randomIndex];
+            const slotIndex = puzzleDisplay.indexOf(slotToReveal);
+            
+            const inputSlotElement = document.getElementById(`input-slot-${slotIndex}`);
+
+            applyCorrectGuess(slotToReveal, inputSlotElement, slotToReveal.char);
+            
+            statusMessage.textContent = `Hint used! Point deducted.`;
+
+            checkWordCompletion();
+            updateHintButtonState();
+            
+            setTimeout(() => statusMessage.textContent = '', 2000);
+        }
+        
+        function updateHintButtonState() {
+            const hasMissingLetters = puzzleDisplay.some(slot => slot.isMissing && slot.userGuess === '');
+            
+            if (hasMissingLetters) {
+                hintButton.disabled = false;
+                hintButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                hintButton.disabled = true;
+                hintButton.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function checkWordCompletion() {
+            const isComplete = puzzleDisplay.every(slot => !slot.isMissing || slot.userGuess === slot.char);
+
+            if (isComplete) {
+                score++;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('wordBlitzHighScore', highScore);
+                }
+                updateStats();
+                playLevelUp();
+                
+                statusMessage.textContent = `LEVEL ${currentWordIndex} COMPLETE! Loading next word...`;
+                
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                    loadNewPuzzle();
+                }, 1500);
+            }
+        }
+
+        // --- Core Game Logic Start ---
+
+        /**
+         * The standard game start logic.
+         */
+        function startLocalGameLogic() {
+            gameRunning = true;
+            score = 0;
+            currentWordIndex = 0;
+            shuffledWords = [...WORD_LIST].sort(() => 0.5 - Math.random());
+            updateStats();
+            loadNewPuzzle();
+            
+            // Hide overlay to start playing
+            gameOverlay.classList.remove('opacity-100');
+            gameOverlay.classList.add('opacity-0', 'pointer-events-none');
+            updateHintButtonState();
+        }
+
+        /**
+         * Ends the game and shows the final score overlay (no FB score submission).
+         */
+        function endGame(completedAll = false) {
+            gameRunning = false;
+            
+            overlayTitle.textContent = completedAll ? "CONGRATULATIONS!" : "GAME OVER";
+            overlayMessage.innerHTML = completedAll ? 
+                `You solved all ${WORD_LIST.length} words! You are a Word Blitz Master!` : 
+                `You completed ${score} out of ${WORD_LIST.length} words. <br>Your High Score: ${highScore}`;
+            
+            startButton.textContent = "Play Again";
+            gameOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            gameOverlay.classList.add('opacity-100');
+            updateHintButtonState();
+        }
+
+        // --- Utility Functions ---
+
+        function updateStats() {
+            scoreDisplay.textContent = score;
+            levelDisplay.textContent = currentWordIndex;
+            highScoreDisplay.textContent = highScore;
+        }
+
+        // --- Event Listeners and Initialization ---
+        
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            const key = e.key.toUpperCase();
+            if (key.length === 1 && key >= 'A' && key <= 'Z') {
+                handleLetterGuess(key);
+            }
+        });
+
+        hintButton.addEventListener('click', getHint);
+
+        window.onload = () => {
+            updateStats(); 
+            
+            // Link the button directly to the game start function
+            startButton.addEventListener('click', startLocalGameLogic);
+
+            // Ensure the start screen is visible initially.
+            gameOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            gameOverlay.classList.add('opacity-100');
+        };
+        
+    </script>
+</body>
+</html>
+
+
